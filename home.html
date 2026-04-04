@@ -241,7 +241,7 @@ async function loadButtons(){
 
   let { data } = await client
   .from("Game result")
-  .select("name, number, open");
+  .select("name, number, open ,close2");
 
   data.sort((a, b) => {
     return checkStatus(b.open, b.close) - checkStatus(a.open, a.close);
