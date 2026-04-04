@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dealer Game</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body{margin:0;background:#020817;font-family:Arial;color:#00e5ff;}
+
+#dealerId{
+position:fixed;left:10px;top:10px;
+background:green;color:#fff;padding:8px 15px;border-radius:25px;font-weight:bold;
+}
+
+#wallet{
+position:fixed;right:10px;top:10px;
+background:red;color:#fff;padding:8px 15px;border-radius:25px;font-weight:bold;
+}
+
+#topBtnBox{margin-top:60px;text-align:center;}
+
+#liveBtn{
+padding:14px 25px;background:#00ff88;border:none;
+border-radius:15px;font-size:18px;font-weight:bold;
+}
+
+#dateFilter{
+padding:10px;border-radius:10px;margin-top:10px;
+}
+
+.grid{
+display:grid;grid-template-columns:repeat(10,1fr);
+gap:8px;padding:10px;margin-bottom:80px;
+}
+
+.box{
+border:1px solid #0ff;border-radius:12px;padding:8px;text-align:center;
+}
+
+.num{font-size:14px;}
+.amt{font-size:14px;margin-top:4px;color:#fff;}
+
+#totalBox{
+position:fixed;
+bottom:0;
+width:100%;
+background:linear-gradient(to right,blue,red);
+color:#fff;
+text-align:center;
+padding:15px;
+font-size:18px;
+font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<div id="dealerId">ID</div>
+<div id="wallet">₹ 0</div>
+
+<div id="topBtnBox">
+<button id="liveBtn" onclick="openLive()">Live Record %</button><br>
+
+<select id="dateFilter" onchange="loadData()">
+  <option value="">All Date</option>
+</select>
+
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div id="totalBox">Total: ₹ 0</div>
+
+<script>
+
+function openLive(){
+window.location.href = "rate.html";
+}
+
+const client = supabase.createClient(
+"https://katbdbzoufiblnnsoxkk.supabase.co",
+"sb_publishable_--fdpQMmSlUyt2ywjUErgQ_LXGvQH-a"
+);
+
+const dealer = JSON.parse(localStorage.getItem("dealer"));
+if(!dealer){ window.location.href="index.html"; }
+
+const market = localStorage.getItem("market");
+
+if(!market){
+  alert("Market not selected");
+  window.location.href="home.html";
+}
+
+/* TOP */
+async function loadTop(){
+let {data} = await client.from("dealers").select("balance").eq("id", dealer.id).single();
+wallet.innerText="₹ "+(data?.balance||0);
+dealerId.innerText="ID: "+dealer.id;
+}
+loadTop();
+
+/* GRID */
+for(let i=0;i<100;i++){
+let n=i.toString().padStart(2,'0');
+grid.innerHTML+=`<div class="box"><div class="num">${n}</div><div class="amt" id="amt_${n}">0</div></div>`;
+}
+
+/* 🔥 LOAD DATES */
+async function loadDates(){
+
+let { data } = await client.from("history").select("created_at");
+
+let unique = {};
+
+data.forEach(row=>{
+let d = row.created_at.split("T")[0];
+unique[d]=true;
+});
+
+let select = document.getElementById("dateFilter");
+
+Object.keys(unique).forEach(d=>{
+select.innerHTML += `<option value="${d}">${d}</option>`;
+});
+
+}
+
+loadDates();
+
+/* 🔥 DATA LOAD */
+async function loadData(){
+
+let selectedDate = document.getElementById("dateFilter").value;
+
+let query = client
+.from("history")
+.select("data, market, created_at")
+.eq("market", market);
+
+if(selectedDate){
+let start = selectedDate + "T00:00:00";
+let end = selectedDate + "T23:59:59";
+query = query.gte("created_at", start).lte("created_at", end);
+}
+
+let { data } = await query;
+
+let map={}
+let total=0
+
+data.forEach(row=>{
+
+if(!row.data) return
+
+try{
+let arr = JSON.parse(row.data)
+
+arr.forEach(item=>{
+
+if(item.number==="TYPING") return
+
+if(item.number && item.amount && item.number.length==2){
+let num=item.number
+let amt=Number(item.amount)||0
+map[num]=(map[num]||0)+amt
+total+=amt
+}
+
+if(item.num && item.a){
+let num=item.num
+let amt=Number(item.a)||0
+map[num]=(map[num]||0)+amt
+total+=amt
+}
+
+if(item.type){
+let d = Number(item.number)
+let amt = Number(item.amount)||0
+let share = amt / 10
+
+if(item.type==="A"){
+for(let i=0;i<10;i++){
+let num = `${d}${i}`
+map[num] = (map[num]||0) + share
+}
+}
+
+if(item.type==="B"){
+for(let i=0;i<10;i++){
+let num = `${i}${d}`
+map[num] = (map[num]||0) + share
+}
+}
+
+total+=amt
+}
+
+})
+
+}catch(e){}
+
+})
+
+for(let i=0;i<100;i++){
+let n=i.toString().padStart(2,'0')
+document.getElementById("amt_"+n).innerText=(map[n]||0).toFixed(2)
+}
+
+document.getElementById("totalBox").innerText="Total: ₹ "+total
+
+}
+
+loadData();
+setInterval(()=>{loadData();loadTop();},5000);
+
+</script>
+
+</body>
+</html>
