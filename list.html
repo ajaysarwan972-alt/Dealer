@@ -69,6 +69,7 @@ const client = supabase.createClient(
 const market = localStorage.getItem("market") || "faridabad";
 
 let fullData = [];
+let filteredData = []; // 🔥 NEW
 
 // 🔥 LOAD DATE
 async function loadDates(){
@@ -193,7 +194,7 @@ amountFilter.innerHTML+=`<option value="${a}">₹${a}</option>`;
 }
 
 // render
-applyFilter(total);
+applyFilter();
 
 }
 
@@ -204,12 +205,17 @@ let val = amountFilter.value;
 let html="";
 let total=0;
 
+filteredData = []; // 🔥 reset
+
 fullData.forEach(i=>{
 
 if(val && i.amt != val) return;
 
 html+=`<div class="item">${i.num} = ₹${i.amt}</div>`;
 total+=Number(i.amt);
+
+// 🔥 save filtered
+filteredData.push(i);
 
 });
 
@@ -218,17 +224,22 @@ document.getElementById("total").innerText="Total ₹"+total;
 
 }
 
-// 🔥 COPY
+// 🔥 COPY (FIXED)
 function copyData(){
+
+if(filteredData.length === 0){
+alert("No data");
+return;
+}
 
 let txt="";
 
-fullData.forEach(i=>{
+filteredData.forEach(i=>{
 txt+=`${i.num} = ₹${i.amt}\n`;
 });
 
 navigator.clipboard.writeText(txt);
-alert("Copied");
+alert("Copied ✅");
 
 }
 
