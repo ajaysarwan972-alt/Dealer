@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dealer List</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body{margin:0;background:#000;color:#fff;font-family:Arial;}
+
+.top{
+display:flex;
+justify-content:space-between;
+padding:10px;
+}
+
+select{
+padding:10px;
+margin:5px;
+width:90%;
+}
+
+.item{
+background:#111;
+margin:8px;
+padding:12px;
+border-radius:8px;
+font-size:18px;
+}
+
+button{
+width:90%;
+padding:10px;
+margin:10px;
+background:#0f0;
+border:none;
+border-radius:6px;
+font-size:16px;
+}
+
+#total{
+position:fixed;
+bottom:0;
+width:100%;
+background:red;
+padding:12px;
+text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<div class="top">
+<div>ID</div>
+<div>₹0</div>
+</div>
+
+<!-- DATE FILTER -->
+<select id="dateFilter" onchange="loadData()">
+<option value="">All Date</option>
+</select>
+
+<!-- USER FILTER -->
+<select id="userFilter" onchange="loadData()">
+<option value="">All Users</option>
+</select>
+
+<!-- AMOUNT FILTER -->
+<select id="amountFilter" onchange="loadData()">
+<option value="">All Amount</option>
+<option value="5">₹5</option>
+<option value="10">₹10</option>
+<option value="20">₹20</option>
+<option value="50">₹50</option>
+<option value="100">₹100</option>
+</select>
+
+<button onclick="copyData()">Copy Data</button>
+
+<div id="list"></div>
+
+<div id="total">Total ₹0</div>
+
+<script>
+
+const client = supabase.createClient(
+"https://katbdbzoufiblnnsoxkk.supabase.co",
+"sb_publishable_--fdpQMmSlUyt2ywjUErgQ_LXGvQH-a"
+);
+
+const market = localStorage.getItem("market") || "faridabad";
+
+// 📅 LOAD DATES
+async function loadDates(){
+let {data} = await client.from("history").select("created_at");
+
+let set={};
+
+data.forEach(r=>{
+let d=r.created_at?.split("T")[0];
+if(d) set[d]=1;
+});
+
+for(let d in set){
+dateFilter.innerHTML+=`<option value="${d}">${d}</option>`;
+}
+}
+loadDates();
+
+// 👤 LOAD USERS
+async function loadUsers(){
+let {data} = await client.from("history").select("user_id");
+
+let set={};
+
+data.forEach(r=>{
+if(r.user_id) set[r.user_id]=1;
+});
+
+for(let u in set){
+userFilter.innerHTML+=`<option value="${u}">${u}</option>`;
+}
+}
+loadUsers();
+
+// 🔥 MAIN DATA LOAD
+async function loadData(){
+
+let date = dateFilter.value;
+let user = userFilter.value;
+let amtFilter = amountFilter.value;
+
+let query = client.from("history").select("*").eq("market",market);
+
+// date filter
+if(date){
+query = query.gte("created_at",date+"T00:00:00").lte("created_at",date+"T23:59:59");
+}
+
+// user filter
+if(user){
+query = query.eq("user_id",user);
+}
+
+let {data}=await query;
+
+let map={},total=0;
+
+// process data
+data.forEach(r=>{
+try{
+let arr=JSON.parse(r.data);
+
+arr.forEach(i=>{
+
+// normal
+if(i.number && i.amount){
+map[i.number]=(map[i.number]||0)+Number(i.amount);
+total+=Number(i.amount);
+}
+
+// short
+if(i.num && i.a){
+map[i.num]=(map[i.num]||0)+Number(i.a);
+total+=Number(i.a);
+}
+
+// A/B
+if(i.type){
+let d=i.number;
+let amt=Number(i.amount)||0;
+let share=amt/10;
+
+if(i.type=="A"){
+for(let j=0;j<10;j++){
+let n=d+j;
+map[n]=(map[n]||0)+share;
+}
+}
+
+if(i.type=="B"){
+for(let j=0;j<10;j++){
+let n=j+d;
+map[n]=(map[n]||0)+share;
+}
+}
+
+total+=amt;
+}
+
+});
+
+}catch(e){}
+});
+
+// show list
+list.innerHTML="";
+window.copyText="";
+
+for(let key in map){
+
+if(
+(amtFilter === "" && map[key] > 0) ||
+(amtFilter !== "" && map[key] == amtFilter)
+){
+
+let line = `${key} = ₹${map[key]}`;
+
+list.innerHTML += `<div class="item">${line}</div>`;
+copyText += line + "\n";
+
+}
+}
+
+document.getElementById("total").innerText="Total ₹"+total;
+
+}
+
+// 📋 COPY
+function copyData(){
+navigator.clipboard.writeText(copyText);
+alert("Copied ✅");
+}
+
+// 🚀 INIT
+loadData();
+
+</script>
+
+</body>
+</html>
