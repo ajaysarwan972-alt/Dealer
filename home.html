@@ -244,7 +244,7 @@ async function loadButtons(){
   .select("name, number, open ,close2");
 
   data.sort((a, b) => {
-    return checkStatus(b.open, b.close) - checkStatus(a.open, a.close);
+    return checkStatus(b.open, b.close2) - checkStatus(a.open, a.close2);
   });
 
   let container = document.getElementById("container");
@@ -252,7 +252,7 @@ async function loadButtons(){
 
   data.forEach(item => {
 
-    let isOpen = checkStatus(item.open, item.close);
+    let isOpen = checkStatus(item.open, item.close2);
 
     let btn = document.createElement("div");
     btn.className = "btn";
@@ -260,7 +260,7 @@ async function loadButtons(){
     btn.innerHTML = `
       <div class="gameName">${item.name}</div>
       <div class="gameNumber">${item.number || '**'}</div>
-      <div class="gameTime">${item.open} - ${item.close}</div>
+      <div class="gameTime">${item.open} - ${item.close2}</div>
       <div class="status">
         <img src="${isOpen 
           ? 'https://cdn-icons-png.flaticon.com/512/190/190411.png' 
