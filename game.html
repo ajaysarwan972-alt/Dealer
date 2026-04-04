@@ -27,7 +27,7 @@ font-size:12px;
 }
 
 select{
-padding:10px;margin:10px;
+padding:10px;margin:5px;
 }
 
 #total{
@@ -44,8 +44,14 @@ background:red;padding:10px;
 <div id="wallet">₹0</div>
 </div>
 
+<!-- 🔥 DATE FILTER -->
 <select id="dateFilter" onchange="loadData()">
 <option value="">All Date</option>
+</select>
+
+<!-- 🔥 USER FILTER -->
+<select id="userFilter" onchange="loadData()">
+<option value="">All Users</option>
 </select>
 
 <div id="grid"></div>
@@ -59,7 +65,6 @@ const client = supabase.createClient(
 "sb_publishable_--fdpQMmSlUyt2ywjUErgQ_LXGvQH-a"
 );
 
-// 🔥 test market (direct set for now)
 const market = localStorage.getItem("market") || "faridabad";
 
 // grid create
@@ -68,7 +73,7 @@ let n=i.toString().padStart(2,'0');
 grid.innerHTML+=`<div class="box" id="b${n}">${n}<br>0</div>`;
 }
 
-// load dates
+// 🔥 LOAD DATES
 async function loadDates(){
 let {data} = await client.from("history").select("created_at");
 
@@ -85,15 +90,38 @@ dateFilter.innerHTML+=`<option value="${d}">${d}</option>`;
 }
 loadDates();
 
-// load data
+// 🔥 LOAD USERS
+async function loadUsers(){
+let {data} = await client.from("history").select("user_id");
+
+let set={};
+
+data.forEach(r=>{
+if(r.user_id) set[r.user_id]=1;
+});
+
+for(let u in set){
+userFilter.innerHTML+=`<option value="${u}">${u}</option>`;
+}
+}
+loadUsers();
+
+// 🔥 LOAD DATA
 async function loadData(){
 
-let date=dateFilter.value;
+let date = dateFilter.value;
+let user = userFilter.value;
 
-let query=client.from("history").select("*").eq("market",market);
+let query = client.from("history").select("*").eq("market",market);
 
+// date filter
 if(date){
-query=query.gte("created_at",date+"T00:00:00").lte("created_at",date+"T23:59:59");
+query = query.gte("created_at",date+"T00:00:00").lte("created_at",date+"T23:59:59");
+}
+
+// user filter
+if(user){
+query = query.eq("user_id", user);
 }
 
 let {data}=await query;
@@ -110,18 +138,27 @@ data.forEach(r=>{
 try{
 let arr=JSON.parse(r.data);
 
+let seen = new Set(); // 🔥 duplicate fix
+
 arr.forEach(i=>{
 
+let key = JSON.stringify(i);
+if(seen.has(key)) return;
+seen.add(key);
+
+// normal
 if(i.number && i.amount){
 map[i.number]=(map[i.number]||0)+Number(i.amount);
 total+=Number(i.amount);
 }
 
+// short
 if(i.num && i.a){
 map[i.num]=(map[i.num]||0)+Number(i.a);
 total+=Number(i.a);
 }
 
+// A/B
 if(i.type){
 let d=i.number;
 let amt=Number(i.amount)||0;
@@ -153,7 +190,7 @@ let n=i.toString().padStart(2,'0');
 document.getElementById("b"+n).innerHTML=n+"<br>"+(map[n]||0);
 }
 
-totalBox.innerText="Total ₹"+total;
+document.getElementById("total").innerText="Total ₹"+total;
 
 }
 
