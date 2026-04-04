@@ -2,20 +2,16 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dealer List</title>
+<title>List</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 body{margin:0;background:#000;color:#fff;font-family:Arial;}
 
-.top{
-display:flex;
-justify-content:space-between;
-padding:10px;
-}
+.top{padding:10px;text-align:center;}
 
-select{
+select,button{
 padding:10px;
 margin:5px;
 width:90%;
@@ -24,19 +20,8 @@ width:90%;
 .item{
 background:#111;
 margin:8px;
-padding:12px;
-border-radius:8px;
-font-size:18px;
-}
-
-button{
-width:90%;
 padding:10px;
-margin:10px;
-background:#0f0;
-border:none;
-border-radius:6px;
-font-size:16px;
+border-radius:8px;
 }
 
 #total{
@@ -44,7 +29,7 @@ position:fixed;
 bottom:0;
 width:100%;
 background:red;
-padding:12px;
+padding:10px;
 text-align:center;
 }
 </style>
@@ -53,31 +38,22 @@ text-align:center;
 <body>
 
 <div class="top">
-<div>ID</div>
-<div>₹0</div>
-</div>
 
-<!-- DATE FILTER -->
 <select id="dateFilter" onchange="loadData()">
 <option value="">All Date</option>
 </select>
 
-<!-- USER FILTER -->
 <select id="userFilter" onchange="loadData()">
 <option value="">All Users</option>
 </select>
 
-<!-- AMOUNT FILTER -->
-<select id="amountFilter" onchange="loadData()">
+<select id="amountFilter" onchange="applyFilter()">
 <option value="">All Amount</option>
-<option value="5">₹5</option>
-<option value="10">₹10</option>
-<option value="20">₹20</option>
-<option value="50">₹50</option>
-<option value="100">₹100</option>
 </select>
 
 <button onclick="copyData()">Copy Data</button>
+
+</div>
 
 <div id="list"></div>
 
@@ -92,7 +68,9 @@ const client = supabase.createClient(
 
 const market = localStorage.getItem("market") || "faridabad";
 
-// 📅 LOAD DATES
+let fullData = [];
+
+// 🔥 LOAD DATE
 async function loadDates(){
 let {data} = await client.from("history").select("created_at");
 
@@ -109,7 +87,7 @@ dateFilter.innerHTML+=`<option value="${d}">${d}</option>`;
 }
 loadDates();
 
-// 👤 LOAD USERS
+// 🔥 LOAD USERS
 async function loadUsers(){
 let {data} = await client.from("history").select("user_id");
 
@@ -125,49 +103,48 @@ userFilter.innerHTML+=`<option value="${u}">${u}</option>`;
 }
 loadUsers();
 
-// 🔥 MAIN DATA LOAD
+// 🔥 LOAD DATA
 async function loadData(){
 
 let date = dateFilter.value;
 let user = userFilter.value;
-let amtFilter = amountFilter.value;
 
 let query = client.from("history").select("*").eq("market",market);
 
-// date filter
 if(date){
 query = query.gte("created_at",date+"T00:00:00").lte("created_at",date+"T23:59:59");
 }
 
-// user filter
 if(user){
-query = query.eq("user_id",user);
+query = query.eq("user_id", user);
 }
 
 let {data}=await query;
 
-let map={},total=0;
+let map={}, total=0;
 
-// process data
+// reset
+for(let i=0;i<100;i++){
+let n=i.toString().padStart(2,'0');
+map[n]=0;
+}
+
 data.forEach(r=>{
 try{
 let arr=JSON.parse(r.data);
 
 arr.forEach(i=>{
 
-// normal
 if(i.number && i.amount){
-map[i.number]=(map[i.number]||0)+Number(i.amount);
+map[i.number]+=Number(i.amount);
 total+=Number(i.amount);
 }
 
-// short
 if(i.num && i.a){
-map[i.num]=(map[i.num]||0)+Number(i.a);
+map[i.num]+=Number(i.a);
 total+=Number(i.a);
 }
 
-// A/B
 if(i.type){
 let d=i.number;
 let amt=Number(i.amount)||0;
@@ -175,15 +152,13 @@ let share=amt/10;
 
 if(i.type=="A"){
 for(let j=0;j<10;j++){
-let n=d+j;
-map[n]=(map[n]||0)+share;
+map[d+j]+=share;
 }
 }
 
 if(i.type=="B"){
 for(let j=0;j<10;j++){
-let n=j+d;
-map[n]=(map[n]||0)+share;
+map[j+d]+=share;
 }
 }
 
@@ -195,36 +170,68 @@ total+=amt;
 }catch(e){}
 });
 
-// show list
-list.innerHTML="";
-window.copyText="";
+// 🔥 STORE FULL DATA
+fullData = [];
 
-for(let key in map){
-
-if(
-(amtFilter === "" && map[key] > 0) ||
-(amtFilter !== "" && map[key] == amtFilter)
-){
-
-let line = `${key} = ₹${map[key]}`;
-
-list.innerHTML += `<div class="item">${line}</div>`;
-copyText += line + "\n";
-
+for(let i=0;i<100;i++){
+let n=i.toString().padStart(2,'0');
+if(map[n]>0){
+fullData.push({num:n, amt:map[n]});
 }
 }
 
+// 🔥 AUTO AMOUNT OPTIONS
+let amtSet = {};
+amountFilter.innerHTML = `<option value="">All Amount</option>`;
+
+fullData.forEach(i=>{
+amtSet[i.amt]=1;
+});
+
+for(let a in amtSet){
+amountFilter.innerHTML+=`<option value="${a}">₹${a}</option>`;
+}
+
+// render
+applyFilter(total);
+
+}
+
+// 🔥 APPLY FILTER
+function applyFilter(){
+
+let val = amountFilter.value;
+let html="";
+let total=0;
+
+fullData.forEach(i=>{
+
+if(val && i.amt != val) return;
+
+html+=`<div class="item">${i.num} = ₹${i.amt}</div>`;
+total+=Number(i.amt);
+
+});
+
+list.innerHTML=html;
 document.getElementById("total").innerText="Total ₹"+total;
 
 }
 
-// 📋 COPY
+// 🔥 COPY
 function copyData(){
-navigator.clipboard.writeText(copyText);
-alert("Copied ✅");
+
+let txt="";
+
+fullData.forEach(i=>{
+txt+=`${i.num} = ₹${i.amt}\n`;
+});
+
+navigator.clipboard.writeText(txt);
+alert("Copied");
+
 }
 
-// 🚀 INIT
 loadData();
 
 </script>
