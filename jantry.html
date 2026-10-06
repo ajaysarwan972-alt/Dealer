@@ -7,594 +7,209 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-
-body{
-  margin:0;
-  background:#000;
-  color:#fff;
-  font-family:Arial;
-  text-align:center;
-}
+body{margin:0;background:#000;color:#fff;font-family:Arial;text-align:center;}
 
 .top{
-  display:flex;
-  justify-content:space-between;
-  padding:10px;
+display:flex;justify-content:space-between;padding:10px;
 }
 
-#grid,
-#gridA,
-#gridB{
-  display:grid;
-  grid-template-columns:repeat(10,1fr);
-  gap:5px;
-  padding:10px;
+#grid{
+display:grid;
+grid-template-columns:repeat(10,1fr);
+gap:5px;
+padding:10px;
 }
 
 .box{
-  border:1px solid #0ff;
-  padding:7px 3px;
-  font-size:12px;
-  min-height:30px;
-}
-
-.sectionTitle{
-  margin-top:15px;
-  padding:8px;
-  background:#222;
-  font-size:18px;
-  font-weight:bold;
+border:1px solid #0ff;
+padding:5px;
+font-size:12px;
 }
 
 select{
-  padding:10px;
-  margin:5px;
+padding:10px;margin:5px;
 }
 
 button{
-  padding:10px;
-  margin:10px;
-  background:#0f0;
-  border:none;
-  border-radius:6px;
+padding:10px;
+margin:10px;
+background:#0f0;
+border:none;
+border-radius:6px;
 }
 
 #total{
-  position:fixed;
-  bottom:0;
-  left:0;
-  width:100%;
-  background:red;
-  padding:10px;
-  z-index:999;
+position:fixed;bottom:0;width:100%;
+background:red;padding:10px;
 }
-
-.content{
-  padding-bottom:70px;
-}
-
 </style>
 </head>
 
 <body>
 
 <div class="top">
-  <div id="dealerId">ID</div>
-  <div id="wallet">₹0</div>
+<div id="dealerId">ID</div>
+<div id="wallet">₹0</div>
 </div>
 
+<!-- 🔥 LIST BUTTON -->
 <button onclick="goList()">List View</button>
 
+<!-- 🔥 DATE FILTER -->
 <select id="dateFilter" onchange="loadData()">
-  <option value="">All Date</option>
+<option value="">All Date</option>
 </select>
 
+<!-- 🔥 USER FILTER -->
 <select id="userFilter" onchange="loadData()">
-  <option value="">All Users</option>
+<option value="">All Users</option>
 </select>
 
-<div class="content">
+<div id="grid"></div>
 
-  <!-- ================= JODI ================= -->
-
-  <div class="sectionTitle">
-    JODI 00 - 99
-  </div>
-
-  <div id="grid"></div>
-
-
-  <!-- ================= HARUF A ================= -->
-
-  <div class="sectionTitle">
-    A - ANDAR
-  </div>
-
-  <div id="gridA"></div>
-
-
-  <!-- ================= HARUF B ================= -->
-
-  <div class="sectionTitle">
-    B - BAHAR
-  </div>
-
-  <div id="gridB"></div>
-
-</div>
-
-<div id="total">
-  Total ₹0
-</div>
-
+<div id="total">Total ₹0</div>
 
 <script>
 
-/* ================= SUPABASE ================= */
-
 const client = supabase.createClient(
-  "https://katbdbzoufiblnnsoxkk.supabase.co",
-  "sb_publishable_--fdpQMmSlUyt2ywjUErgQ_LXGvQH-a"
+"https://katbdbzoufiblnnsoxkk.supabase.co",
+"sb_publishable_--fdpQMmSlUyt2ywjUErgQ_LXGvQH-a"
 );
 
+const market = localStorage.getItem("market") || "faridabad";
 
-/* ================= MARKET ================= */
-
-const market =
-  localStorage.getItem("market") || "faridabad";
-
-
-/* ================= LIST ================= */
-
+// 🔥 GO LIST PAGE
 function goList(){
-
-  window.location.href = "list.html";
-
+window.location.href = "list.html";
 }
 
-
-/* ================= JODI 00-99 ================= */
-
+// grid create
 for(let i=0;i<100;i++){
-
-  let n =
-    i.toString().padStart(2,'0');
-
-  document.getElementById("grid").innerHTML += `
-
-    <div class="box" id="b${n}">
-      ${n}<br>0
-    </div>
-
-  `;
-
+let n=i.toString().padStart(2,'0');
+grid.innerHTML+=`<div class="box" id="b${n}">${n}<br>0</div>`;
 }
 
-
-/* ================= A 0-9 ================= */
-
-for(let i=0;i<10;i++){
-
-  document.getElementById("gridA").innerHTML += `
-
-    <div class="box" id="a${i}">
-      ${i}<br>0
-    </div>
-
-  `;
-
-}
-
-
-/* ================= B 0-9 ================= */
-
-for(let i=0;i<10;i++){
-
-  document.getElementById("gridB").innerHTML += `
-
-    <div class="box" id="bb${i}">
-      ${i}<br>0
-    </div>
-
-  `;
-
-}
-
-
-/* ================= LOAD DATES ================= */
-
+// 🔥 LOAD DATES
 async function loadDates(){
+let {data} = await client.from("history").select("created_at");
 
-  const {data,error} =
-    await client
-      .from("history")
-      .select("created_at")
-      .eq("market",market);
+let set={};
 
-  if(error){
+data.forEach(r=>{
+let d=r.created_at?.split("T")[0];
+if(d) set[d]=1;
+});
 
-    console.error(error);
-    return;
-
-  }
-
-  let set={};
-
-  (data || []).forEach(r=>{
-
-    let d =
-      r.created_at?.split("T")[0];
-
-    if(d){
-      set[d]=1;
-    }
-
-  });
-
-
-  let select =
-    document.getElementById("dateFilter");
-
-  select.innerHTML =
-    '<option value="">All Date</option>';
-
-
-  Object.keys(set)
-    .sort()
-    .reverse()
-    .forEach(d=>{
-
-      select.innerHTML +=
-        `<option value="${d}">${d}</option>`;
-
-    });
-
+for(let d in set){
+dateFilter.innerHTML+=`<option value="${d}">${d}</option>`;
 }
+}
+loadDates();
 
-
-/* ================= LOAD USERS ================= */
-
+// 🔥 LOAD USERS
 async function loadUsers(){
+let {data} = await client.from("history").select("user_id");
 
-  const {data,error} =
-    await client
-      .from("history")
-      .select("user_id")
-      .eq("market",market);
+let set={};
 
-  if(error){
+data.forEach(r=>{
+if(r.user_id) set[r.user_id]=1;
+});
 
-    console.error(error);
-    return;
-
-  }
-
-  let set={};
-
-  (data || []).forEach(r=>{
-
-    if(r.user_id){
-      set[r.user_id]=1;
-    }
-
-  });
-
-
-  let select =
-    document.getElementById("userFilter");
-
-  select.innerHTML =
-    '<option value="">All Users</option>';
-
-
-  Object.keys(set)
-    .sort()
-    .forEach(u=>{
-
-      select.innerHTML +=
-        `<option value="${u}">${u}</option>`;
-
-    });
-
+for(let u in set){
+userFilter.innerHTML+=`<option value="${u}">${u}</option>`;
 }
+}
+loadUsers();
 
-
-/* ================= LOAD DATA ================= */
-
+// 🔥 LOAD DATA
 async function loadData(){
 
-  let date =
-    document.getElementById("dateFilter").value;
-
-  let user =
-    document.getElementById("userFilter").value;
-
-
-  let query =
-    client
-      .from("history")
-      .select("*")
-      .eq("market",market);
-
-
-  /* DATE */
-
-  if(date){
-
-    query =
-      query
-        .gte(
-          "created_at",
-          date + "T00:00:00"
-        )
-        .lte(
-          "created_at",
-          date + "T23:59:59"
-        );
-
-  }
-
-
-  /* USER */
-
-  if(user){
-
-    query =
-      query.eq(
-        "user_id",
-        user
-      );
-
-  }
-
-
-  const {data,error} =
-    await query;
-
-
-  if(error){
-
-    console.error(error);
-    return;
-
-  }
-
-
-  /* ================= MAPS ================= */
-
-  let jodi={};
-  let andar={};
-  let bahar={};
-
-  let total=0;
-
-
-  /* RESET JODI */
-
-  for(let i=0;i<100;i++){
-
-    let n =
-      i.toString().padStart(2,'0');
-
-    jodi[n]=0;
-
-  }
-
-
-  /* RESET A/B */
-
-  for(let i=0;i<10;i++){
-
-    andar[i]=0;
-    bahar[i]=0;
-
-  }
-
-
-  /* ================= READ HISTORY ================= */
-
-  (data || []).forEach(r=>{
-
-    try{
-
-      let arr = r.data;
-
-      /*
-        Agar data JSON string mein hai
-        to JSON.parse karo.
-      */
-
-      if(typeof arr === "string"){
-
-        arr=JSON.parse(arr);
-
-      }
-
-
-      if(!Array.isArray(arr)){
-
-        return;
-
-      }
-
-
-      arr.forEach(i=>{
-
-        let amount =
-          Number(i.amount ?? i.points ?? i.a ?? 0);
-
-
-        /* ================= NORMAL JODI ================= */
-
-        if(
-          i.number !== undefined &&
-          !String(i.number).startsWith("A") &&
-          !String(i.number).startsWith("B")
-        ){
-
-          let n =
-            String(i.number).padStart(2,'0');
-
-          if(jodi[n] !== undefined){
-
-            jodi[n] += amount;
-
-          }
-
-          total += amount;
-
-        }
-
-
-        /* ================= A / B ================= */
-
-        let number =
-          String(
-            i.number ??
-            i.num ??
-            ""
-          );
-
-
-        /*
-          A0, A1 ... A9
-        */
-
-        if(/^A[0-9]$/.test(number)){
-
-          let digit =
-            number.substring(1);
-
-          andar[digit] += amount;
-
-          total += amount;
-
-        }
-
-
-        /*
-          B0, B1 ... B9
-        */
-
-        if(/^B[0-9]$/.test(number)){
-
-          let digit =
-            number.substring(1);
-
-          bahar[digit] += amount;
-
-          total += amount;
-
-        }
-
-
-        /*
-          Agar data type ke through save hua ho:
-
-          {type:"A", number:"5", amount:100}
-        */
-
-        if(i.type === "A"){
-
-          let digit =
-            String(i.number);
-
-          if(/^[0-9]$/.test(digit)){
-
-            andar[digit] += amount;
-            total += amount;
-
-          }
-
-        }
-
-
-        /*
-          B type
-        */
-
-        if(i.type === "B"){
-
-          let digit =
-            String(i.number);
-
-          if(/^[0-9]$/.test(digit)){
-
-            bahar[digit] += amount;
-            total += amount;
-
-          }
-
-        }
-
-      });
-
-    }
-    catch(e){
-
-      console.error(
-        "Data error:",
-        e
-      );
-
-    }
-
-  });
-
-
-  /* ================= UPDATE JODI ================= */
-
-  for(let i=0;i<100;i++){
-
-    let n =
-      i.toString().padStart(2,'0');
-
-    document.getElementById(
-      "b"+n
-    ).innerHTML =
-      n + "<br>" + jodi[n];
-
-  }
-
-
-  /* ================= UPDATE A ================= */
-
-  for(let i=0;i<10;i++){
-
-    document.getElementById(
-      "a"+i
-    ).innerHTML =
-      i + "<br>" + andar[i];
-
-  }
-
-
-  /* ================= UPDATE B ================= */
-
-  for(let i=0;i<10;i++){
-
-    document.getElementById(
-      "bb"+i
-    ).innerHTML =
-      i + "<br>" + bahar[i];
-
-  }
-
-
-  /* ================= TOTAL ================= */
-
-  document.getElementById(
-    "total"
-  ).innerText =
-    "Total ₹" + total;
+let date = dateFilter.value;
+let user = userFilter.value;
+
+let query = client.from("history").select("*").eq("market",market);
+
+// date filter
+if(date){
+query = query.gte("created_at",date+"T00:00:00").lte("created_at",date+"T23:59:59");
+}
+
+// user filter
+if(user){
+query = query.eq("user_id", user);
+}
+
+let {data}=await query;
+
+let map={},total=0;
+
+// reset
+for(let i=0;i<100;i++){
+let n=i.toString().padStart(2,'0');
+map[n]=0;
+}
+
+data.forEach(r=>{
+try{
+let arr=JSON.parse(r.data);
+
+let seen = new Set();
+
+arr.forEach(i=>{
+
+let key = JSON.stringify(i);
+if(seen.has(key)) return;
+seen.add(key);
+
+// normal
+if(i.number && i.amount){
+map[i.number]=(map[i.number]||0)+Number(i.amount);
+total+=Number(i.amount);
+}
+
+// short
+if(i.num && i.a){
+map[i.num]=(map[i.num]||0)+Number(i.a);
+total+=Number(i.a);
+}
+
+// A/B
+if(i.type){
+let d=i.number;
+let amt=Number(i.amount)||0;
+let share=amt/10;
+
+if(i.type=="A"){
+for(let j=0;j<10;j++){
+map[d+j]=(map[d+j]||0)+share;
+}
+}
+
+if(i.type=="B"){
+for(let j=0;j<10;j++){
+map[j+d]=(map[j+d]||0)+share;
+}
+}
+
+total+=amt;
+}
+
+});
+
+}catch(e){}
+});
+
+// update UI
+for(let i=0;i<100;i++){
+let n=i.toString().padStart(2,'0');
+document.getElementById("b"+n).innerHTML=n+"<br>"+(map[n]||0);
+}
+
+document.getElementById("total").innerText="Total ₹"+total;
 
 }
 
-
-/* ================= START ================= */
-
-loadDates();
-loadUsers();
 loadData();
 
 </script>
