@@ -1,251 +1,943 @@
+```html
 <!DOCTYPE html>
-<html>
+<html lang="hi">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
 <title>List</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-body{margin:0;background:#000;color:#fff;font-family:Arial;}
 
-.top{padding:10px;text-align:center;}
+*{
+    box-sizing:border-box;
+}
 
-select,button{
-padding:10px;
-margin:5px;
-width:90%;
+body{
+    margin:0;
+    background:#000;
+    color:#fff;
+    font-family:Arial,sans-serif;
+
+    /* नीचे Total bar के लिए जगह */
+    padding-bottom:75px;
+}
+
+.top{
+    padding:8px 10px 5px;
+    text-align:center;
+    position:sticky;
+    top:0;
+    z-index:10;
+    background:#000;
+}
+
+select,
+button{
+    padding:10px;
+    margin:4px;
+    width:94%;
+    border-radius:6px;
+    border:1px solid #555;
+}
+
+button{
+    background:#222;
+    color:#fff;
+    cursor:pointer;
 }
 
 .item{
-background:#111;
-margin:8px;
-padding:10px;
-border-radius:8px;
+    background:#111;
+    margin:7px 10px;
+    padding:10px;
+    border-radius:8px;
+    border:1px solid #222;
+    font-size:16px;
+}
+
+.harf{
+    background:#181818;
+    border-left:4px solid #fff;
+}
+
+#list{
+    padding-top:2px;
+
+    /* आखिरी नंबर Total bar के पीछे न छिपे */
+    padding-bottom:25px;
 }
 
 #total{
-position:fixed;
-bottom:0;
-width:100%;
-background:red;
-padding:10px;
-text-align:center;
+    position:fixed;
+    bottom:0;
+    left:0;
+    width:100%;
+    background:red;
+    color:#fff;
+    padding:13px 10px;
+    text-align:center;
+    font-size:18px;
+    font-weight:bold;
+    z-index:20;
 }
+
+.empty{
+    text-align:center;
+    padding:20px;
+    color:#aaa;
+}
+
 </style>
+
 </head>
 
 <body>
 
 <div class="top">
 
-<select id="dateFilter" onchange="loadData()">
-<option value="">All Date</option>
+<select id="dateFilter">
+    <option value="">All Date</option>
 </select>
 
-<select id="userFilter" onchange="loadData()">
-<option value="">All Users</option>
+<select id="userFilter">
+    <option value="">All Users</option>
 </select>
 
-<select id="amountFilter" onchange="applyFilter()">
-<option value="">All Amount</option>
+<select id="amountFilter">
+    <option value="">All Amount</option>
 </select>
 
-<button onclick="copyData()">Copy Data</button>
+<button onclick="copyData()">
+    Copy Data
+</button>
 
 </div>
 
 <div id="list"></div>
 
-<div id="total">Total ₹0</div>
+<div id="total">
+    Total ₹0
+</div>
+
 
 <script>
 
 const client = supabase.createClient(
-"https://katbdbzoufiblnnsoxkk.supabase.co",
-"sb_publishable_--fdpQMmSlUyt2ywjUErgQ_LXGvQH-a"
+
+    "https://katbdbzoufiblnnsoxkk.supabase.co",
+
+    "sb_publishable_--fdpQMmSlUyt2ywjUErgQ_LXGvQH-a"
+
 );
 
-const market = localStorage.getItem("market") || "faridabad";
 
-let fullData = [];
-let filteredData = []; // 🔥 NEW
+const market =
+    localStorage.getItem("market") || "faridabad";
 
-// 🔥 LOAD DATE
-async function loadDates(){
-let {data} = await client.from("history").select("created_at");
 
-let set={};
+const dateFilter =
+    document.getElementById("dateFilter");
 
-data.forEach(r=>{
-let d=r.created_at?.split("T")[0];
-if(d) set[d]=1;
-});
+const userFilter =
+    document.getElementById("userFilter");
 
-for(let d in set){
-dateFilter.innerHTML+=`<option value="${d}">${d}</option>`;
+const amountFilter =
+    document.getElementById("amountFilter");
+
+const list =
+    document.getElementById("list");
+
+
+let rawData = [];
+
+let numberData = [];
+
+let harfData = [];
+
+let filteredData = [];
+
+
+/* =========================
+   INDIA DATE
+========================= */
+
+function indiaDate(value){
+
+    if(!value) return "";
+
+    const d = new Date(value);
+
+    const parts =
+        new Intl.DateTimeFormat(
+            "en-GB",
+            {
+                timeZone:"Asia/Kolkata",
+                year:"numeric",
+                month:"2-digit",
+                day:"2-digit"
+            }
+        ).formatToParts(d);
+
+    let day = "";
+    let month = "";
+    let year = "";
+
+    parts.forEach(p => {
+
+        if(p.type === "day")
+            day = p.value;
+
+        if(p.type === "month")
+            month = p.value;
+
+        if(p.type === "year")
+            year = p.value;
+
+    });
+
+    return `${year}-${month}-${day}`;
 }
+
+
+/* =========================
+   DISPLAY DATE
+========================= */
+
+function displayDate(date){
+
+    if(!date) return "";
+
+    const p = date.split("-");
+
+    if(p.length !== 3)
+        return date;
+
+    return `${p[2]}-${p[1]}-${p[0]}`;
 }
-loadDates();
 
-// 🔥 LOAD USERS
-async function loadUsers(){
-let {data} = await client.from("history").select("user_id");
 
-let set={};
+/* =========================
+   LOAD FILTERS
+========================= */
 
-data.forEach(r=>{
-if(r.user_id) set[r.user_id]=1;
-});
+async function loadFilters(){
 
-for(let u in set){
-userFilter.innerHTML+=`<option value="${u}">${u}</option>`;
+    const { data, error } =
+        await client
+        .from("history")
+        .select("created_at,user_id")
+        .eq("market", market);
+
+    if(error){
+
+        console.error(error);
+
+        return;
+    }
+
+
+    const dates = new Set();
+
+    const users = new Set();
+
+
+    data.forEach(row => {
+
+        if(row.created_at){
+
+            dates.add(
+                indiaDate(row.created_at)
+            );
+
+        }
+
+        if(row.user_id){
+
+            users.add(
+                row.user_id
+            );
+
+        }
+
+    });
+
+
+    /* DATE */
+
+    dateFilter.innerHTML =
+        `<option value="">All Date</option>`;
+
+
+    [...dates]
+        .sort((a,b) => b.localeCompare(a))
+        .forEach(date => {
+
+            dateFilter.innerHTML +=
+            `<option value="${date}">
+                ${displayDate(date)}
+            </option>`;
+
+        });
+
+
+    /* USERS */
+
+    userFilter.innerHTML =
+        `<option value="">All Users</option>`;
+
+
+    [...users]
+        .sort()
+        .forEach(user => {
+
+            userFilter.innerHTML +=
+            `<option value="${user}">
+                ${user}
+            </option>`;
+
+        });
+
 }
-}
-loadUsers();
 
-// 🔥 LOAD DATA
+
+/* =========================
+   LOAD DATA
+========================= */
+
 async function loadData(){
 
-let date = dateFilter.value;
-let user = userFilter.value;
+    list.innerHTML =
+        `<div class="empty">Loading...</div>`;
 
-let query = client.from("history").select("*").eq("market",market);
 
-if(date){
-query = query.gte("created_at",date+"T00:00:00").lte("created_at",date+"T23:59:59");
-}
+    const { data, error } =
+        await client
+        .from("history")
+        .select("*")
+        .eq("market", market)
+        .order("created_at", {
+            ascending:false
+        });
 
-if(user){
-query = query.eq("user_id", user);
-}
 
-let {data}=await query;
+    if(error){
 
-let map={}, total=0;
+        console.error(error);
 
-// reset
-for(let i=0;i<100;i++){
-let n=i.toString().padStart(2,'0');
-map[n]=0;
-}
+        list.innerHTML =
+            `<div class="empty">
+                Data load error
+            </div>`;
 
-data.forEach(r=>{
-try{
-let arr=JSON.parse(r.data);
+        return;
+    }
 
-arr.forEach(i=>{
 
-if(i.number && i.amount){
-map[i.number]+=Number(i.amount);
-total+=Number(i.amount);
-}
+    rawData = data || [];
 
-if(i.num && i.a){
-map[i.num]+=Number(i.a);
-total+=Number(i.a);
-}
 
-if(i.type){
-let d=i.number;
-let amt=Number(i.amount)||0;
-let share=amt/10;
+    const selectedDate =
+        dateFilter.value;
 
-if(i.type=="A"){
-for(let j=0;j<10;j++){
-map[d+j]+=share;
-}
-}
+    const selectedUser =
+        userFilter.value;
 
-if(i.type=="B"){
-for(let j=0;j<10;j++){
-map[j+d]+=share;
-}
-}
 
-total+=amt;
-}
+    /* DATE + USER FILTER */
 
-});
+    rawData = rawData.filter(row => {
 
-}catch(e){}
-});
+        if(selectedDate){
 
-// 🔥 STORE FULL DATA
-fullData = [];
+            if(
+                indiaDate(row.created_at)
+                !== selectedDate
+            ){
 
-for(let i=0;i<100;i++){
-let n=i.toString().padStart(2,'0');
-if(map[n]>0){
-fullData.push({num:n, amt:map[n]});
-}
-}
+                return false;
+            }
 
-// 🔥 AUTO AMOUNT OPTIONS
-let amtSet = {};
-amountFilter.innerHTML = `<option value="">All Amount</option>`;
+        }
 
-fullData.forEach(i=>{
-amtSet[i.amt]=1;
-});
 
-for(let a in amtSet){
-amountFilter.innerHTML+=`<option value="${a}">₹${a}</option>`;
-}
+        if(selectedUser){
 
-// render
-applyFilter();
+            if(
+                String(row.user_id)
+                !== String(selectedUser)
+            ){
+
+                return false;
+            }
+
+        }
+
+
+        return true;
+
+    });
+
+
+    createList();
 
 }
 
-// 🔥 APPLY FILTER
-function applyFilter(){
 
-let val = amountFilter.value;
-let html="";
-let total=0;
+/* =========================
+   CREATE LIST
+========================= */
 
-filteredData = []; // 🔥 reset
+function createList(){
 
-fullData.forEach(i=>{
+    const numberMap = {};
 
-if(val && i.amt != val) return;
+    const harfs = [];
 
-html+=`<div class="item">${i.num} = ₹${i.amt}</div>`;
-total+=Number(i.amt);
+    const actualRecords = [];
 
-// 🔥 save filtered
-filteredData.push(i);
 
-});
+    /* 00-99 map */
 
-list.innerHTML=html;
-document.getElementById("total").innerText="Total ₹"+total;
+    for(let i=0;i<100;i++){
+
+        const n =
+            i.toString().padStart(2,"0");
+
+        numberMap[n] = 0;
+
+    }
+
+
+    rawData.forEach(row => {
+
+        let arr;
+
+        try{
+
+            arr =
+                typeof row.data === "string"
+                ? JSON.parse(row.data)
+                : row.data;
+
+        }catch(e){
+
+            return;
+
+        }
+
+
+        if(!Array.isArray(arr))
+            return;
+
+
+        arr.forEach(item => {
+
+
+            /* =========================
+               HARF A / B
+            ========================= */
+
+            if(
+                item.type === "A" ||
+                item.type === "B"
+            ){
+
+                const number =
+                    item.number ??
+                    item.num ??
+                    "";
+
+
+                const amount =
+                    Number(
+                        item.amount ??
+                        item.a ??
+                        0
+                    );
+
+
+                /* सिर्फ amount वाले Harf */
+
+                if(amount > 0){
+
+                    harfs.push({
+
+                        type:item.type,
+
+                        number:String(number),
+
+                        amount:amount
+
+                    });
+
+
+                    actualRecords.push({
+
+                        type:"harf",
+
+                        amount:amount
+
+                    });
+
+
+                    /* Harf का number distribution */
+
+                    const d =
+                        String(number);
+
+
+                    const share =
+                        amount / 10;
+
+
+                    if(item.type === "A"){
+
+                        for(let j=0;j<10;j++){
+
+                            const n =
+                                String(
+                                    Number(d) + j
+                                ).padStart(2,"0");
+
+
+                            if(numberMap[n] !== undefined){
+
+                                numberMap[n] += share;
+
+                            }
+
+                        }
+
+                    }
+
+
+                    if(item.type === "B"){
+
+                        for(let j=0;j<10;j++){
+
+                            const n =
+                                String(j) + d;
+
+
+                            n =
+                                n.slice(-2);
+
+
+                            if(numberMap[n] !== undefined){
+
+                                numberMap[n] += share;
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+                return;
+
+            }
+
+
+            /* =========================
+               DIRECT NUMBER
+            ========================= */
+
+            const number =
+                item.number ??
+                item.num;
+
+
+            const amount =
+                Number(
+                    item.amount ??
+                    item.a ??
+                    0
+                );
+
+
+            if(
+                number !== undefined &&
+                amount > 0
+            ){
+
+                let n =
+                    String(number)
+                    .padStart(2,"0");
+
+
+                if(numberMap[n] !== undefined){
+
+                    numberMap[n] += amount;
+
+                }
+
+
+                actualRecords.push({
+
+                    type:"number",
+
+                    amount:amount
+
+                });
+
+            }
+
+        });
+
+    });
+
+
+    /* =========================
+       NUMBER LIST
+       सिर्फ amount वाले
+    ========================= */
+
+    numberData = [];
+
+
+    for(let i=0;i<100;i++){
+
+        const n =
+            i.toString().padStart(2,"0");
+
+
+        if(numberMap[n] > 0){
+
+            numberData.push({
+
+                type:"number",
+
+                num:n,
+
+                amount:numberMap[n]
+
+            });
+
+        }
+
+    }
+
+
+    /* =========================
+       HARF LIST
+       सिर्फ amount वाले
+    ========================= */
+
+    harfData = harfs;
+
+
+    /* =========================
+       AMOUNT FILTER
+    ========================= */
+
+    const amounts = new Set();
+
+
+    numberData.forEach(item => {
+
+        amounts.add(
+            Number(item.amount).toFixed(2)
+        );
+
+    });
+
+
+    harfData.forEach(item => {
+
+        amounts.add(
+            Number(item.amount).toFixed(2)
+        );
+
+    });
+
+
+    amountFilter.innerHTML =
+        `<option value="">All Amount</option>`;
+
+
+    [...amounts]
+        .sort((a,b) => Number(a)-Number(b))
+        .forEach(amount => {
+
+            amountFilter.innerHTML +=
+            `<option value="${amount}">
+                ₹${Number(amount)}
+            </option>`;
+
+        });
+
+
+    renderList();
 
 }
 
-// 🔥 COPY (FIXED)
-function copyData(){
 
-if(filteredData.length === 0){
-alert("No data");
-return;
+/* =========================
+   RENDER
+========================= */
+
+function renderList(){
+
+    const selectedAmount =
+        amountFilter.value;
+
+
+    let html = "";
+
+    filteredData = [];
+
+
+    /* =========================
+       HARF
+    ========================= */
+
+    harfData.forEach(item => {
+
+        const amount =
+            Number(item.amount);
+
+
+        if(
+            selectedAmount &&
+            amount.toFixed(2)
+            !== selectedAmount
+        ){
+
+            return;
+
+        }
+
+
+        html += `
+            <div class="item harf">
+                Harf ${item.type}
+                ${item.number}
+                = ₹${amount}
+            </div>
+        `;
+
+
+        filteredData.push({
+
+            text:
+                `Harf ${item.type} ${item.number} = ₹${amount}`,
+
+            amount:amount
+
+        });
+
+    });
+
+
+    /* =========================
+       NUMBERS
+    ========================= */
+
+    numberData.forEach(item => {
+
+        const amount =
+            Number(item.amount);
+
+
+        if(
+            selectedAmount &&
+            amount.toFixed(2)
+            !== selectedAmount
+        ){
+
+            return;
+
+        }
+
+
+        html += `
+            <div class="item">
+                ${item.num} = ₹${amount}
+            </div>
+        `;
+
+
+        filteredData.push({
+
+            text:
+                `${item.num} = ₹${amount}`,
+
+            amount:amount
+
+        });
+
+    });
+
+
+    if(html === ""){
+
+        html =
+            `<div class="empty">
+                Is filter mein koi data nahi hai
+            </div>`;
+
+    }
+
+
+    list.innerHTML = html;
+
+
+    /* =========================
+       TOTAL
+    ========================= */
+
+    let total = 0;
+
+
+    rawData.forEach(row => {
+
+        let arr;
+
+        try{
+
+            arr =
+                typeof row.data === "string"
+                ? JSON.parse(row.data)
+                : row.data;
+
+        }catch(e){
+
+            return;
+
+        }
+
+
+        if(!Array.isArray(arr))
+            return;
+
+
+        arr.forEach(item => {
+
+            let amount =
+                Number(
+                    item.amount ??
+                    item.a ??
+                    0
+                );
+
+
+            if(amount <= 0)
+                return;
+
+
+            if(
+                selectedAmount &&
+                amount.toFixed(2)
+                !== selectedAmount
+            ){
+
+                return;
+
+            }
+
+
+            total += amount;
+
+        });
+
+    });
+
+
+    document.getElementById("total")
+        .innerText =
+        "Total ₹" + total;
+
 }
 
-let txt="";
 
-filteredData.forEach(i=>{
-txt+=`${i.num} = ₹${i.amt}\n`;
-});
+/* =========================
+   COPY
+========================= */
 
-navigator.clipboard.writeText(txt);
-alert("Copied ✅");
+async function copyData(){
+
+    if(filteredData.length === 0){
+
+        alert("No data");
+
+        return;
+
+    }
+
+
+    let text = "";
+
+
+    filteredData.forEach(item => {
+
+        text += item.text + "\n";
+
+    });
+
+
+    try{
+
+        await navigator.clipboard
+            .writeText(text);
+
+        alert("Copied ✅");
+
+    }catch(e){
+
+        alert("Copy nahi hua");
+
+    }
 
 }
 
-loadData();
+
+/* =========================
+   FILTER EVENTS
+========================= */
+
+dateFilter.addEventListener(
+    "change",
+    loadData
+);
+
+
+userFilter.addEventListener(
+    "change",
+    loadData
+);
+
+
+amountFilter.addEventListener(
+    "change",
+    renderList
+);
+
+
+/* =========================
+   START
+========================= */
+
+async function init(){
+
+    await loadFilters();
+
+    await loadData();
+
+}
+
+
+init();
 
 </script>
 
 </body>
 </html>
+```
